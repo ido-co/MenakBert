@@ -218,6 +218,7 @@ def runModel(cfg: DictConfig):
 
         trainer = setup_trainer(params['max_epochs'])
         trainer.fit(model, dm)
+        # todo : Somewhere above is the saving problem
 
     trainer.test(model, data_modules[-1])
 
