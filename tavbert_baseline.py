@@ -1,6 +1,7 @@
 import random
 import re
 import random
+from pathlib import Path
 
 import torch
 from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM, TrainingArguments, Trainer
@@ -9,12 +10,12 @@ from torch import nn
 import numpy as np
 import sklearn
 
+
 tokenizer = AutoTokenizer.from_pretrained("tavbert")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = AutoModelForMaskedLM.from_pretrained("tavbert")
-with open(r"C:\Users\Administrator\PycharmProjects\HamenakBert\hebrew_diacritized\data\test\books\2.txt",
-          encoding='utf8') as f:
+with open(Path.cwd() / r"hebrew_diacritized/data/test/books/2.txt", encoding='utf8') as f:
     res = open("res.txt",'w',encoding='utf8')
     for sent in f.readlines():
         word = random.choice(sent.split(" "))
