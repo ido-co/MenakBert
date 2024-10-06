@@ -1,22 +1,53 @@
-import pandas as pd
-import torch
-from matplotlib import pyplot as plt
-from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
-from torch import nn
 import torch.nn.functional as F
-from pytorch_lightning import LightningModule, Trainer, seed_everything
-from transformers import AutoModel, get_linear_schedule_with_warmup
-from dataset import NIQQUD_SIZE, DAGESH_SIZE, SIN_SIZE, PAD_INDEX
-from HebrewDataModule import HebrewDataModule
-import numpy as np
+from matplotlib import pyplot as plt
+from pytorch_lightning import LightningModule, seed_everything
+from sklearn.metrics import ConfusionMatrixDisplay
+from torch import nn
 from torchmetrics import F1Score
+from transformers import AutoModel, get_linear_schedule_with_warmup
 
-from pre_processing import name_of, DAGESH, NIQQUD, NIQQUD_SIN
+from HebrewDataModule import HebrewDataModule
+from consts import *
+from dataset import NIQQUD_SIZE, DAGESH_SIZE, SIN_SIZE, PAD_INDEX
+
+
+def enable_full_model_training(model: LightningModule):
+    """Ensure all layers in the model are trainable."""
+    for param in model.parameters():
+        param.requires_grad = True
+
+
+def check_encoder_training(model: LightningModule) -> bool:
+    all_training = True  # Flag to track if all layers are in training mode
+
+    print("Checking encoder layers training mode...")
+    for name, module in model.encoder.named_children():  # Iterate through the children of the encoder
+        if not module.training:
+            print(f"Layer {name} is NOT in training mode.")
+            all_training = False
+        else:
+            print(f"Layer {name} is in training mode.")
+
+    return all_training
+
+
+def check_trainable_layers(model: LightningModule) -> bool:
+    all_trainable = True  # Flag to track if all layers are trainable
+
+    print("Checking trainable layers...")
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            print(f"Layer {name} is NOT trainable (requires_grad is False).")
+            all_trainable = False
+        else:
+            print(f"Layer {name} is trainable (requires_grad is True).")
+
+    return all_trainable
 
 
 class MenakBert(LightningModule):
     def __init__(self,
-                 model,
+                 backbone,
                  lr,
                  dropout,
                  train_batch_size,
@@ -28,8 +59,9 @@ class MenakBert(LightningModule):
                  n_warmup_steps=None,
                  ):
         super().__init__()
-        self.model = AutoModel.from_pretrained(model)
-        self.model.hidden_dropout_prob = dropout
+        self.backbone = AutoModel.from_pretrained(backbone, cache_dir="models")
+        enable_full_model_training(self.backbone)
+        self.backbone.hidden_dropout_prob = dropout
         self.linear_D = nn.Linear(768, DAGESH_SIZE)
         self.linear_S = nn.Linear(768, SIN_SIZE)
         self.linear_N = nn.Linear(768, NIQQUD_SIZE)
@@ -48,12 +80,16 @@ class MenakBert(LightningModule):
         self.weights = weights
         self.full_weights = None
 
+    def enable_training(self):
+        """Ensure all layers in the model are trainable."""
+        enable_full_model_training(self.backbone)
+
     def forward(self, input_ids, attention_mask, label=None):
         """
         :return: tuple of 3 tensor batch,sentence_len,classes
         """
 
-        last_hidden_state = self.model(input_ids, attention_mask)['last_hidden_state']
+        last_hidden_state = self.backbone(input_ids, attention_mask)['last_hidden_state']
         large = self.linear_up(last_hidden_state)
         drop = self.dropout(large)
         active1 = self.reluLayer1(drop)
@@ -229,19 +265,33 @@ class MenakBert(LightningModule):
 
 
 if __name__ == "__main__":
-    temp_Val_BatchSize = 32
+    # TODO remove from code, maybe convert it to tests
     seed_everything(42)
 
-    TRAIN_PATH = '/content/Bert_data/train'
-    VAL_PATH = '/content/Bert_data/validation'
-    TEST_PATH = '/content/Bert_data/test'
+    dm = HebrewDataModule(
+        train_paths=train_data,
+        val_path=val_data,
+        model=BACKBONE,
+        max_seq_length=MAX_LEN,
+        min_seq_length=MIN_LEN,
+        train_batch_size=Train_BatchSize,
+        val_batch_size=Train_BatchSize,
+        split_sentence=False,
+        test_paths=test_data)
 
-    train_data = [TRAIN_PATH]
-    val_data = [VAL_PATH]
-    test_data = [TEST_PATH]
-    dm = HebrewDataModule(train_data, val_data, test_data,
-                          # train_batch_size=Train_BatchSize,
-                          val_batch_size=temp_Val_BatchSize)
     dm.setup()
 
-    model = MenakBert()
+    steps_per_epoch = len(dm.train_data) // Train_BatchSize
+    total_training_steps = steps_per_epoch * MAX_EPOCHS
+    warmup_steps = total_training_steps // 5
+
+    model = MenakBert(backbone=BACKBONE,
+                      dropout=DROPOUT,
+                      train_batch_size=Train_BatchSize,
+                      lr=LR,
+                      linear_size=LINEAR_LAYER_SIZE,
+                      max_epochs=MAX_EPOCHS,
+                      min_epochs=MIN_EPOCHS,
+                      n_warmup_steps=warmup_steps,
+                      n_training_steps=total_training_steps,
+                      weights=True)

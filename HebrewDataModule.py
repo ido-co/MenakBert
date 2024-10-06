@@ -1,8 +1,14 @@
-from pytorch_lightning import LightningDataModule, LightningModule, Trainer, seed_everything
+import os
+import pickle
+from pathlib import Path
+from typing import List, Dict
+
+from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
-from dataset import textDataset
-# from MenakBert import  , MODEL
 from transformers import AutoTokenizer
+
+from consts import DATA_MODULES_CACHE
+from dataset import textDataset
 
 
 class HebrewDataModule(LightningDataModule):
@@ -49,6 +55,7 @@ class HebrewDataModule(LightningDataModule):
             self.split_sentence
         )
 
+        # TODO ask why it is set like this..I would check if the list is not empty
         if self.test_paths[0]:
             self.test_data = textDataset(
                 self.test_paths,
@@ -68,8 +75,69 @@ class HebrewDataModule(LightningDataModule):
         return DataLoader(self.test_data, batch_size=self.val_batch_size, num_workers=12)
 
 
-if __name__ == '__main__':
-    dm = HebrewDataModule("tau/tavbert-he")
-    dm.prepare_data()
-    for batch in dm.train_dataloader():
-         break
+CACHE_DIR = Path("data_module_cache")
+
+
+def save_to_cache(data_modules: List[HebrewDataModule], cache_file: str):
+    """Saves the data modules to a cache file."""
+    with open(CACHE_DIR / cache_file, 'wb') as f:
+        pickle.dump(data_modules, f)
+
+
+def load_from_cache(cache_file: str) -> List[HebrewDataModule]:
+    """Loads the data modules from a cache file."""
+    with open(CACHE_DIR / cache_file, 'rb') as f:
+        return pickle.load(f)
+
+
+def create_data_modules(params: Dict, use_cache: bool = True, force_refresh: bool = False) -> List[HebrewDataModule]:
+    """Creates or loads data modules, with the option to use cache or force refresh."""
+
+    # Define a unique cache filename based on parameters (optional)
+    cache_file = DATA_MODULES_CACHE
+
+    # Check if the cache directory exists, and create it if it doesn't
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # If using cache and cache file exists, and refresh is not forced, load from cache
+    if use_cache and (CACHE_DIR / cache_file).exists() and not force_refresh:
+        print("Loading data modules from cache...")
+        return load_from_cache(cache_file)
+
+    # Otherwise, create the data modules
+    base_path = params['train_data']
+    dirs = ['religion', 'pre_modern', 'early_modern', 'modern']
+    testpath = [None, None, None, params['test_data']]
+
+    data_modules = []
+    for i, directory in enumerate(dirs):
+        train_path = os.path.join(base_path, directory)
+
+        dm = HebrewDataModule(
+            train_paths=[train_path],
+            val_path=[params['val_data']],
+            model=params['model'],
+            max_seq_length=params['maxlen'],
+            min_seq_length=params['minlen'],
+            train_batch_size=params['train_batch_size'],
+            val_batch_size=params['val_batch_size'],
+            split_sentence=params['split_sentence'],
+            test_paths=[testpath[i]],
+        )
+        dm.setup()  # Ensure the data module is ready
+
+        # Add the data module to the list
+        data_modules.append(dm)
+
+    # Save the newly created data modules to cache if caching is enabled
+    if use_cache:
+        print("Saving data modules to cache...")
+        save_to_cache(data_modules, cache_file)
+
+    return data_modules
+
+# if __name__ == '__main__':
+#     dm = HebrewDataModule(BACKBONE)
+#     dm.prepare_data()
+#     for batch in dm.train_dataloader():
+#         break

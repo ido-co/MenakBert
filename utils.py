@@ -1,10 +1,11 @@
-from typing import List, Iterable
-import sys
 import contextlib
 import os
+import sys
+from typing import List, Iterable
+
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
-import numpy as np
 
 
 def iterate_files(base_paths: Iterable[str]) -> List[str]:
@@ -67,15 +68,17 @@ def pad_sequences(sequences, maxlen, dtype, value):
     for idx, s in enumerate(sequences):
         if not len(s):
             continue  # empty list/array was found
-        trunc = [value] + s[:maxlen-1]
+        trunc = [value] + s[:maxlen - 1]
         x[idx, :len(trunc)] = np.asarray(trunc, dtype=dtype)
     return x
+
 
 def pad_lists(sequences, maxlen, value):
     x = []
     for seq in sequences:
         x.append([value] + seq + [value] * (maxlen - len(seq) - 1))
     return x
+
 
 def shuffle_in_unison(*arrs):
     rng_state = np.random.get_state()
