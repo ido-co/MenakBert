@@ -1,6 +1,6 @@
 import csv
 import os
-from typing import Dict, List
+from typing import Dict
 
 import gdown
 import torch
@@ -9,7 +9,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 from transformers import AutoTokenizer
 
-from HebrewDataModule import HebrewDataModule, create_data_modules
+from HebrewDataModule import create_data_modules
 from MenakBert import MenakBert, check_encoder_training, check_trainable_layers
 from consts import BACKBONE, DEFAULT_CFG, BACKBONE_NAME, ALL_WEIGHTS, BACKBONE_MODEL_LOCAL_URL
 from evaluation import compare_by_file_from_checkpoint
@@ -84,46 +84,20 @@ def setup_trainer(max_epochs):
     trainer = Trainer(
         logger=logger,
         # auto_lr_find=True,
-        checkpoint_callback=checkpoint_callback,
-        callbacks=[early_stopping_callback],
+        callbacks=[checkpoint_callback, early_stopping_callback],
         max_epochs=max_epochs,
-        gpus=0, # TODO change to 0 as it was
+        gpus=0,  # TODO change to 0 as it was
         progress_bar_refresh_rate=100,
         log_every_n_steps=100
     )
     return trainer
-
-#
-# def create_data_modules(params: Dict) -> List[HebrewDataModule]:
-#     base_path = params['train_data']
-#     # TODO create it dynamically
-#     dirs = ['religion', 'pre_modern', 'early_modern', 'modern']
-#     testpath = [None, None, None, params['test_data']]
-#
-#     data_modules = []
-#     for i, directory in enumerate(dirs):
-#         train_path = os.path.join(base_path, directory)
-#
-#         dm = HebrewDataModule(
-#             train_paths=[train_path],
-#             val_path=[params['val_data']],
-#             model=BACKBONE,
-#             max_seq_length=params['maxlen'],
-#             min_seq_length=params['minlen'],
-#             train_batch_size=params['train_batch_size'],
-#             val_batch_size=params['val_batch_size'],
-#             split_sentence=params['split_sentence'],
-#             test_paths=[testpath[i]],
-#         )
-#         dm.setup()
-#         data_modules.append(dm)
-#     return data_modules
 
 
 def run_model(params):
     os.environ['TOKENIZERS_PARALLELISM'] = 'true'
 
     data_modules = create_data_modules(params)
+
     # TODO change name to be indicative
     base_path = params['train_data']
 
@@ -157,13 +131,6 @@ def run_model(params):
 
     trainer.test(model, data_modules[-1])
 
-    # Mor: copied for previous code under main - when hydra was not available
-    # model, dm = setup_model(**params)
-    # trainer = setup_trainer(params['max_epochs'])
-    # # trainer.tune(model)
-    # trainer.fit(model, dm)
-    # trainer.test(model, dm)
-
     with open(os.path.join(base_path, "result_tabel.csv"), "a") as f:
         fin = params.copy()
         fin["acc_S"] = model.final_acc_S.item()
@@ -171,55 +138,6 @@ def run_model(params):
         fin["acc_N"] = model.final_acc_N.item()
         writer = csv.DictWriter(f, fieldnames=list(CSV_HEAD))
         writer.writerow(fin)
-
-    # Mor: copied for previous code under main - when hydra was not available
-
-    # model, dm = setup_model(**params)
-    # model, dm = setup_model(train_data=train_data,
-    #                         val_data=val_data,
-    #                         test_data=test_data,
-    #                         model=BACKBONE,
-    #                         maxlen=MAX_LEN,
-    #                         minlen=MIN_LEN,
-    #                         lr=LR,
-    #                         dropout=DROPOUT,
-    #                         train_batch_size=Train_BatchSize,
-    #                         val_batch_size=Val_BatchSize,
-    #                         max_epochs=MAX_EPOCHS,
-    #                         min_epochs=MIN_EPOCHS,
-    #                         weighted_loss=True)
-    # trainer = setup_trainer(MAX_EPOCHS)
-    # # with cProfile.Profile() as pr:
-    # #     trainer.fit(model, dm)
-    # # stat = pstats.Stats(pr)
-    # # stat.dump_stats(filename="run_time.prof")
-    # trainer.test(model, dm)
-    # CSV_HEAD = [
-    #     "train_data",
-    #     "val_data",
-    #     "test_data",
-    #     "model",
-    #     "maxlen",
-    #     "minlen",
-    #     "lr",
-    #     "dropout",
-    #     "train_batch_size",
-    #     "val_batch_size",
-    #     "max_epochs",
-    #     "min_epochs",
-    #     "weighted_loss",
-    #     "acc_S",
-    #     "acc_D",
-    #     "acc_N",
-    # ]
-    # # with open("result_tabel.csv", "a") as f:
-    # #     # writer = csv.writer(f)
-    # #     fin = params.copy()
-    # #     fin["acc_S"] = model.final_acc_S.item()
-    # #     fin["acc_D"] = model.final_acc_D.item()
-    # #     fin["acc_N"] = model.final_acc_N.item()
-    # #     writer = csv.DictWriter(f, fieldnames=list(CSV_HEAD))
-    # #     writer.writerow(fin)
 
     tokenizer = AutoTokenizer.from_pretrained(BACKBONE, use_fast=True)
     compare_by_file_from_checkpoint(os.path.join(base_path, params['test_data']), r"predicted", r"expected", tokenizer,

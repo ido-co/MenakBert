@@ -11,8 +11,8 @@ from consts import *
 from dataset import NIQQUD_SIZE, DAGESH_SIZE, SIN_SIZE, PAD_INDEX
 
 
-def enable_full_model_training(model: LightningModule):
-    """Ensure all layers in the model are trainable."""
+def enable_full_model_training(model):
+    """Unfreeze all layers to ensure they are trainable."""
     for param in model.parameters():
         param.requires_grad = True
 
@@ -84,6 +84,15 @@ class MenakBert(LightningModule):
         """Ensure all layers in the model are trainable."""
         enable_full_model_training(self.backbone)
 
+    def set_full_weights(self):
+        n_weights = torch.tensor([2.4920e-01, 2.6323e-01, 8.8410e-02, 1.0692e-03, 1.2552e-02, 1.4649e-04,
+                                  7.2875e-02, 2.8470e-02, 4.6895e-02, 7.4532e-02, 8.5893e-02, 4.8047e-02,
+                                  2.6159e-05, 2.8658e-02], device=self.device)
+        s_weights = torch.tensor([9.6249e-01, 3.2961e-04, 3.4374e-02, 2.8073e-03], device=self.device)
+        d_weights = torch.tensor([0.3914, 0.5126, 0.0961], device=self.device)
+        self.full_weights = {'N': n_weights, 'S': s_weights, 'D': d_weights}
+
+
     def forward(self, input_ids, attention_mask, label=None):
         """
         :return: tuple of 3 tensor batch,sentence_len,classes
@@ -103,13 +112,8 @@ class MenakBert(LightningModule):
         loss = 0
         if label is not None:
             if self.weights:
-                if not self.full_weights:
-                    n_weights = torch.tensor([2.4920e-01, 2.6323e-01, 8.8410e-02, 1.0692e-03, 1.2552e-02, 1.4649e-04,
-                                              7.2875e-02, 2.8470e-02, 4.6895e-02, 7.4532e-02, 8.5893e-02, 4.8047e-02,
-                                              2.6159e-05, 2.8658e-02], device=self.device)
-                    s_weights = torch.tensor([9.6249e-01, 3.2961e-04, 3.4374e-02, 2.8073e-03], device=self.device)
-                    d_weights = torch.tensor([0.3914, 0.5126, 0.0961], device=self.device)
-                    self.full_weights = {'N': n_weights, 'S': s_weights, 'D': d_weights}
+                if not self.full_weights: # if full_weights none, set weights
+                    self.set_full_weights()
                 loss_n = F.cross_entropy(n.permute(0, 2, 1), label["N"].long(), ignore_index=PAD_INDEX,
                                          weight=self.full_weights['N'])
                 loss_d = F.cross_entropy(d.permute(0, 2, 1), label["D"].long(), ignore_index=PAD_INDEX,

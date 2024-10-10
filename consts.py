@@ -9,9 +9,14 @@ BACKBONE = "tau/tavbert-he"
 BACKBONE_MODEL_LOCAL_URL = "https://drive.google.com/drive/folders/1K78B5SM8FjBc_5r-UWTwoj1x105xpksK?usp=sharing"
 
 PROJ_FOLDER = Path.cwd()
-TRAIN_PATH = PROJ_FOLDER / r"hebrew_diacritized/data/train"
-VAL_PATH = PROJ_FOLDER / "hebrew_diacritized/data/validation"
-TEST_PATH = PROJ_FOLDER / "hebrew_diacritized/data/test"
+# TRAIN_PATH = PROJ_FOLDER / r"hebrew_diacritized/data/train"
+# VAL_PATH = PROJ_FOLDER / "hebrew_diacritized/data/validation"
+# TEST_PATH = PROJ_FOLDER / "hebrew_diacritized/data/test"
+
+testing = "_testing2"
+TRAIN_PATH = PROJ_FOLDER / f"hebrew_diacritized{testing}/data/train"
+VAL_PATH = PROJ_FOLDER / f"hebrew_diacritized{testing}/data/validation"
+TEST_PATH = PROJ_FOLDER / f"hebrew_diacritized{testing}/data/test"
 
 train_data = [TRAIN_PATH]
 val_data = [VAL_PATH]
@@ -24,8 +29,8 @@ DROPOUT = 0.1
 
 LR = 1e-5
 
-MAX_EPOCHS = 100
-MIN_EPOCHS = 5
+MAX_EPOCHS = 2
+MIN_EPOCHS = 1
 
 MAX_LEN = 100
 MIN_LEN = 10
