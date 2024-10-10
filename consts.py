@@ -37,6 +37,9 @@ MIN_LEN = 10
 
 LINEAR_LAYER_SIZE = 2048
 
+MODEL_CHECKPOINT_DIR_PATH = "checkpoints"
+MODEL_CHECKPOINT_FILENAME = "best-checkpoint"
+
 DEFAULT_CFG = {
     "train_data": TRAIN_PATH,
     "val_data": VAL_PATH,
