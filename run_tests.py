@@ -4,31 +4,7 @@ import hydra
 from omegaconf import DictConfig
 import os
 
-CSV_HEAD = [
-    "train_data",
-    "val_data",
-    "test_data",
-    "model",
-    "maxlen",
-    "minlen",
-    "split_sentence",
-    "lr",
-    "dropout",
-    "linear_layer_size",
-    "train_batch_size",
-    "val_batch_size",
-    "max_epochs",
-    "min_epochs",
-    "weighted_loss",
-    "path",
-    "acc_S",
-    "acc_D",
-    "acc_N",
-    "dec",
-    "cha",
-    "wor",
-    "voc"
-]
+from consts import CSV_HEAD
 
 
 @hydra.main(config_path="config", config_name="config")

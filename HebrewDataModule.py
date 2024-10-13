@@ -90,7 +90,7 @@ def load_from_cache(cache_file: str) -> List[HebrewDataModule]:
         return pickle.load(f)
 
 
-def create_data_modules(params: Dict, use_cache: bool = True, force_refresh: bool = False) -> List[HebrewDataModule]:
+def create_data_modules(params: Dict, use_cache: bool = False, force_refresh: bool = False) -> List[HebrewDataModule]:
     """Creates or loads data modules, with the option to use cache or force refresh."""
 
     # Define a unique cache filename based on parameters (optional)

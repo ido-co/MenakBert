@@ -198,12 +198,12 @@ def format_latex(system, results):
           .replace('%', ''))
 
 
-def all_stats(*systems):
-    for system in systems:
-        results = macro_average(system)
-        format_latex(system, results)
-        results = micro_average(system)
-        format_latex(system, results)
+def all_stats(*output_paths):
+    for output_path in output_paths:
+        results = macro_average(output_path)
+        format_latex(output_path, results)
+        results = micro_average(output_path)
+        format_latex(output_path, results)
         ew = 1 - results['wor']
         ev = 1 - results['voc']
         print(f'{(ew - ev) / ew:.2%}')

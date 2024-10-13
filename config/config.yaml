@@ -22,3 +22,4 @@ base_path: ???
 
 hydra:
   output_subdir: config
+  version_base: 1.0

@@ -12,10 +12,9 @@ from transformers import AutoTokenizer
 from HebrewDataModule import HebrewDataModule
 from MenakBert import MenakBert
 from consts import BACKBONE, TRAIN_PATH, VAL_PATH, TEST_PATH, MAX_LEN, MIN_LEN, LR, DROPOUT, Train_BatchSize, \
-    Val_BatchSize, MAX_EPOCHS, MIN_EPOCHS, BACKBONE_NAME, LINEAR_LAYER_SIZE
+    Val_BatchSize, MAX_EPOCHS, MIN_EPOCHS, BACKBONE_NAME, LINEAR_LAYER_SIZE, CSV_HEAD
 from evaluation import compare_by_file_from_checkpoint
 from metrics import all_stats
-from run_tests import CSV_HEAD
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -217,7 +216,7 @@ def runModel(cfg: DictConfig):
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL, use_fast=True)
     compare_by_file_from_checkpoint(os.path.join(base_path, testpath[-1]), r"predicted", r"expected", tokenizer,
-                                    100, 5, params["split_sentence"], trainer.checkpoint_callback.best_model_path)
+                                    100, 5, trainer.checkpoint_callback.best_model_path, params["split_sentence"])
     results = all_stats('predicted')
 
     with open(os.path.join(base_path, "result_tabel.csv"), "a") as f:
@@ -328,23 +327,7 @@ if __name__ == '__main__':
     # stat = pstats.Stats(pr)
     # stat.dump_stats(filename="run_time.prof")
     trainer.test(model, dm)
-    CSV_HEAD = [
-        "train_data",
-        "val_data",
-        "test_data",
-        "model",
-        "maxlen",
-        "minlen",
-        "lr",
-        "dropout",
-        "train_batch_size",
-        "val_batch_size",
-        "max_epochs",
-        "min_epochs",
-        "weighted_loss",
-        "acc_S",
-        "acc_D",
-        "acc_N",
+
     ]
     # with open("result_tabel.csv", "a") as f:
     #     # writer = csv.writer(f)

@@ -208,7 +208,7 @@ if __name__ == '__main__':
     # train_dict = {}
     # train_dict["test"] = get_xy(load_data(tuple(['train1.txt', 'train2.txt']), maxlen=16).shuffle())
     test_data = textDataset(tuple([r"hebrew_diacritized/data/train/early_modern"]), 100, 10,
-                            AutoTokenizer.from_pretrained('tavbert', use_fast=True))
+                            AutoTokenizer.from_pretrained('tavbert', use_fast=True), False)
     import json
 
     res = calc_weights(test_data)
@@ -221,7 +221,7 @@ if __name__ == '__main__':
     #     f.write(res_s)
 
     test_data = textDataset(tuple([r"hebrew_diacritized/data/train/modern"]), 100, 10,
-                            AutoTokenizer.from_pretrained('tavbert', use_fast=True))
+                            AutoTokenizer.from_pretrained('tavbert', use_fast=True), False)
     import json
 
     res = calc_weights(test_data)

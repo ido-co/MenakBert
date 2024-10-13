@@ -118,8 +118,8 @@ training_args = TrainingArguments("Masked_Tavbert",
 #     labels = eval_pred.label_ids
 #     predictions = np.argmax(logits, axis=-1)
 #     return metric.compute(predictions=predictions, references=labels)
-small_train_dataset = textDataset(tuple(['hebrew_diacritized/check/train']), MAX_LEN - 1, MIN_LEN, tokenizer)
-small_eval_dataset = textDataset(tuple(['hebrew_diacritized/check/train']), MAX_LEN - 1, MIN_LEN, tokenizer)
+small_train_dataset = textDataset(tuple(['hebrew_diacritized/check/train']), MAX_LEN - 1, MIN_LEN, tokenizer, False)
+small_eval_dataset = textDataset(tuple(['hebrew_diacritized/check/train']), MAX_LEN - 1, MIN_LEN, tokenizer, False)
 
 co = DataCollatorWithMaskedNikkud()
 

@@ -9,6 +9,7 @@ BACKBONE = "tau/tavbert-he"
 BACKBONE_MODEL_LOCAL_URL = "https://drive.google.com/drive/folders/1K78B5SM8FjBc_5r-UWTwoj1x105xpksK?usp=sharing"
 
 PROJ_FOLDER = Path.cwd()
+OUTPUT_FOLDER = PROJ_FOLDER / "output"
 # TRAIN_PATH = PROJ_FOLDER / r"hebrew_diacritized/data/train"
 # VAL_PATH = PROJ_FOLDER / "hebrew_diacritized/data/validation"
 # TEST_PATH = PROJ_FOLDER / "hebrew_diacritized/data/test"
@@ -37,7 +38,7 @@ MIN_LEN = 10
 
 LINEAR_LAYER_SIZE = 2048
 
-MODEL_CHECKPOINT_DIR_PATH = "checkpoints"
+MODEL_CHECKPOINT_DIR_PATH = OUTPUT_FOLDER / "checkpoints"
 MODEL_CHECKPOINT_FILENAME = "best-checkpoint"
 
 DEFAULT_CFG = {
@@ -55,7 +56,8 @@ DEFAULT_CFG = {
     "min_epochs": MIN_EPOCHS,
     "linear_layer_size": LINEAR_LAYER_SIZE,
     "weighted_loss": True,
-    "split_sentence": False  # TODO check
+    "split_sentence": False,  # TODO check
+    "version_base": 1.0
 }
 N_CLASSES = ["none", "rafa", "shva", "hataph segol",
              "hataph patah", "hataph kamats",
@@ -63,6 +65,33 @@ N_CLASSES = ["none", "rafa", "shva", "hataph segol",
              "kamats", "hulam", "kubuch", "shuruk"]
 S_CLASSES = ["NONE", "mask", "sin", "shin"]
 D_CLASSES = ["NONE", "RAFE", "DAGESH"]
+
+CSV_HEAD = [
+    "train_data",
+    "val_data",
+    "test_data",
+    "model",
+    "maxlen",
+    "minlen",
+    "split_sentence",
+    "lr",
+    "dropout",
+    "linear_layer_size",
+    "train_batch_size",
+    "val_batch_size",
+    "max_epochs",
+    "min_epochs",
+    "weighted_loss",
+    "path",
+    "acc_S",
+    "acc_D",
+    "acc_N",
+    "dec",
+    "cha",
+    "wor",
+    "voc",
+    "version_base"
+]
 
 # TODO check what is the right why to do so
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

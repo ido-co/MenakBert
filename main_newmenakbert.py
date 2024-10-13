@@ -1,5 +1,6 @@
 import csv
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
@@ -12,10 +13,10 @@ from transformers import AutoTokenizer
 
 from HebrewDataModule import create_data_modules
 from NewMenakBert import NewMenakBert
-from consts import BACKBONE, DEFAULT_CFG, BACKBONE_NAME, ALL_WEIGHTS, BACKBONE_MODEL_LOCAL_URL
+from consts import BACKBONE, DEFAULT_CFG, BACKBONE_NAME, ALL_WEIGHTS, BACKBONE_MODEL_LOCAL_URL, \
+    MODEL_CHECKPOINT_FILENAME, MODEL_CHECKPOINT_DIR_PATH, CSV_HEAD
 from evaluation import compare_by_file_from_checkpoint
 from metrics import all_stats
-from run_tests import CSV_HEAD
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -73,8 +74,8 @@ def setup_model(warmup_steps, total_training_steps, lr, dropout, linear_size, we
 def setup_trainer(max_epochs):
     # config training
     checkpoint_callback = ModelCheckpoint(
-        dirpath="checkpoints",
-        filename="best-checkpoint",
+        dirpath=MODEL_CHECKPOINT_DIR_PATH,
+        filename=MODEL_CHECKPOINT_FILENAME,
         save_top_k=1,
         verbose=True,
         monitor="f1_score_N",
@@ -89,7 +90,8 @@ def setup_trainer(max_epochs):
     trainer = Trainer(
         logger=logger,
         # auto_lr_find=True,
-        callbacks=[checkpoint_callback, save_model_callback, early_stopping_callback],
+        # callbacks=[checkpoint_callback, save_model_callback, early_stopping_callback],
+        callbacks=[checkpoint_callback, early_stopping_callback],
         max_epochs=max_epochs,  # TODO ask ido if we need min epochs
         gpus=0,  # TODO change to 0 as it was
         progress_bar_refresh_rate=100,
@@ -152,7 +154,7 @@ def dump_model_performance_stats(params, model, trainer):
 
     tokenizer = AutoTokenizer.from_pretrained(BACKBONE, use_fast=True)
     compare_by_file_from_checkpoint(os.path.join(base_path, params['test_data']), r"predicted", r"expected", tokenizer,
-                                    100, 5, params["split_sentence"], trainer.checkpoint_callback.best_model_path)
+                                    100, 5, trainer.checkpoint_callback.best_model_path, params["split_sentence"])
     results = all_stats('predicted')
     # TODO check why we need both
     with open(os.path.join(base_path, "result_tabel.csv"), "a") as f:
@@ -170,6 +172,11 @@ def dump_model_performance_stats(params, model, trainer):
 
 
 # TODO consider moving it into utils or create model callbacks module
+
+def generate_timestamp() -> str:
+    """Generates a timestamp in the format YYYYMMDD_HHMMSS."""
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
 class SaveModelCallback(Callback):
     def __init__(self, base_directory: str):
         super().__init__()
@@ -182,7 +189,7 @@ class SaveModelCallback(Callback):
 
     def _create_save_directory(self, epoch: int) -> str:
         """Creates a unique directory for saving the model."""
-        timestamp = Path().stem  # Use your preferred timestamp method
+        timestamp = generate_timestamp()
         save_directory = Path(self.base_directory) / f"epoch_{epoch}_{timestamp}"
         save_directory.mkdir(parents=True, exist_ok=True)
         return str(save_directory)
