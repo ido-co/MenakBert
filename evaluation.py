@@ -1,14 +1,15 @@
+import logging
 import os
 from pathlib import Path
+
+import torch
+from torch.utils.data import DataLoader
+from transformers import PreTrainedTokenizer
+
 from MenakBert import MenakBert
-from NewMenakBert import NewMenakBert
 from consts import BACKBONE
 from dataset import textDataset
-from torch.utils.data import DataLoader
-import torch
 from metrics import format_output_y1, all_stats
-from transformers import PreTrainedTokenizer
-import logging
 
 
 def compare_by_file_from_checkpoint(
@@ -22,7 +23,7 @@ def compare_by_file_from_checkpoint(
         split_sentence: bool,
         logger: logging.Logger = None) -> None:
     """Compares file predictions from a model checkpoint."""
-    trained_model = NewMenakBert.load_from_checkpoint(checkpoint_path)
+    trained_model = MenakBert.load_from_checkpoint(checkpoint_path)
     compare_by_file_from_model(
         test_path=Path(test_path),
         output_dir=Path(output_dir),
@@ -125,7 +126,8 @@ def process_batches(
 
             # Writing processed (ground truth) output
             line_pro = format_output_y1(
-                batch['input_ids'][sent], batch['label']['N'][sent], batch['label']['D'][sent], batch['label']['S'][sent], tokenizer)
+                batch['input_ids'][sent], batch['label']['N'][sent], batch['label']['D'][sent],
+                batch['label']['S'][sent], tokenizer)
             f_pro.write(f'{line_pro}\n')
 
     if logger:
