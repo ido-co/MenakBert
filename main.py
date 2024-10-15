@@ -52,8 +52,7 @@ def calculate_warmup_steps(params, dm):
     steps_per_epoch = len(dm.train_data) // params['train_batch_size']
     total_training_steps = steps_per_epoch * params['max_epochs']
     warmup_steps = total_training_steps // 5
-    # return warmup_steps, total_training_steps
-    return 0, 1
+    return warmup_steps, total_training_steps
 
 
 def setup_model(warmup_steps, total_training_steps, lr, dropout, linear_size, weights=None):
@@ -61,13 +60,13 @@ def setup_model(warmup_steps, total_training_steps, lr, dropout, linear_size, we
     download_backbone_model_essentials()
 
     model = MenakBert(backbone=BACKBONE,
-                         dropout=dropout,
-                         lr=lr,
-                         linear_size=linear_size,
-                         n_warmup_steps=warmup_steps,
-                         n_training_steps=total_training_steps,
-                         weights=weights,
-                         trainable=True)
+                      dropout=dropout,
+                      lr=lr,
+                      linear_size=linear_size,
+                      n_warmup_steps=warmup_steps,
+                      n_training_steps=total_training_steps,
+                      weights=weights,
+                      trainable=True)
     return model
 
 
@@ -85,17 +84,16 @@ def setup_trainer(max_epochs):
     logger = TensorBoardLogger(OUTPUT_FOLDER / "lightning_logs", name="nikkud_logs")
     early_stopping_callback = EarlyStopping(monitor='train_loss', patience=5)
 
-    save_model_callback = SaveModelCallback(base_directory=OUTPUT_FOLDER /"huggingface_models")
+    save_model_callback = SaveModelCallback(base_directory=OUTPUT_FOLDER / "huggingface_models")
 
     trainer = Trainer(
         logger=logger,
         # auto_lr_find=True,
-        # callbacks=[checkpoint_callback, save_model_callback, early_stopping_callback],
-        callbacks=[checkpoint_callback, early_stopping_callback],
+        callbacks=[checkpoint_callback, save_model_callback, early_stopping_callback],
         max_epochs=max_epochs,  # TODO ask ido if we need min epochs
-        gpus=0,  # TODO change to 0 as it was
+        gpus=1,
         progress_bar_refresh_rate=100,
-        log_every_n_steps=1 # TODO change to 100
+        log_every_n_steps=100
     )
     return trainer
 
@@ -131,7 +129,6 @@ def train_model(params, data_modules):
 
         # TODO ask ido what is the right place for the setup trainer, in the for loop or outside?
         # does it have state?
-
         trainer = setup_trainer(params['max_epochs'])
         trainer.fit(model, dm)
         # todo : Somewhere above is the saving problem
@@ -156,6 +153,7 @@ def dump_model_performance_stats(params, model, trainer):
     csv_file = OUTPUT_FOLDER / "result_tabel.csv"
     file_exists = csv_file.exists()
     with open(csv_file, "a") as f:
+        writer = csv.DictWriter(f, fieldnames=list(CSV_HEAD))
 
         if not file_exists:
             writer.writeheader()
@@ -172,12 +170,12 @@ def dump_model_performance_stats(params, model, trainer):
         writer.writerow(fin)
 
 
-
 # TODO consider moving it into utils or create model callbacks module
 
 def generate_timestamp() -> str:
     """Generates a timestamp in the format YYYYMMDD_HHMMSS."""
     return datetime.now().strftime("%Y%m%d_%H%M%S")
+
 
 class SaveModelCallback(Callback):
     def __init__(self, base_directory: str):
@@ -189,12 +187,12 @@ class SaveModelCallback(Callback):
         save_directory = self._create_save_directory(epoch)
         model.save_pretrained(save_directory)
 
-    def _create_save_directory(self, epoch: int) -> str:
+    def _create_save_directory(self, epoch: int) -> Path:
         """Creates a unique directory for saving the model."""
         timestamp = generate_timestamp()
-        save_directory = Path(self.base_directory) / f"epoch_{epoch}_{timestamp}"
+        save_directory = Path(self.base_directory) / f"{timestamp}_epoch_{epoch}"
         save_directory.mkdir(parents=True, exist_ok=True)
-        return str(save_directory)
+        return save_directory
 
     def on_epoch_end(self, trainer, pl_module):
         """Triggered at the end of each epoch to save the model."""
@@ -214,8 +212,7 @@ try:
     import hydra
     from omegaconf import DictConfig
 
-    # TODO make it work properly
-    HYDRA_AVAILABLE = False
+    HYDRA_AVAILABLE = True
 except ImportError:
     HYDRA_AVAILABLE = False
     DictConfig = dict  # Fallback to regular dict if hydra is unavailable

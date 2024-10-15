@@ -129,3 +129,28 @@ def flatten(dataloader: DataLoader):
 
     return out_tensors
 
+
+def compare_model_weights(model1: torch.nn.Module, model2: torch.nn.Module) -> bool:
+    """Compares the weights of two models to check if they are identical.
+
+    Args:
+        model1 (torch.nn.Module): First model.
+        model2 (torch.nn.Module): Second model.
+
+    Returns:
+        bool: True if the weights are identical, False otherwise.
+    """
+    model1_state_dict = model1.state_dict()
+    model2_state_dict = model2.state_dict()
+
+    # Compare each tensor in the state dict of both models
+    for key in model1_state_dict:
+        if key not in model2_state_dict:
+            print(f"Model2 missing key: {key}")
+            return False
+        if not torch.equal(model1_state_dict[key], model2_state_dict[key]):
+            print(f"Difference found in layer: {key}")
+            return False
+
+    print("The models have identical weights.")
+    return True

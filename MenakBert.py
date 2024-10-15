@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Tuple, List
 
@@ -11,8 +12,9 @@ from torch import Tensor
 from torchmetrics import F1Score
 from transformers import AutoModel, get_linear_schedule_with_warmup, AutoTokenizer
 
-from consts import N_CLASSES, D_CLASSES, S_CLASSES
+from consts import N_CLASSES, D_CLASSES, S_CLASSES, BACKBONE
 from dataset import DAGESH_SIZE, SIN_SIZE, NIQQUD_SIZE, PAD_INDEX
+from metrics import format_output_y1
 
 
 def set_model_training_mode(model: LightningModule, trainable: bool):
@@ -62,27 +64,42 @@ class MenakBert(LightningModule):
                  dropout: float,
                  linear_size: int,
                  weights: bool = False,
-                 n_training_steps=None,
-                 n_warmup_steps=None,
+                 n_training_steps: int = None,
+                 n_warmup_steps: int = None,
                  trainable: bool = True
                  ):
+        self.config = {
+            "backbone": backbone,
+            "lr": lr,
+            "dropout": dropout,
+            "linear_size": linear_size,
+            "weights": weights,
+            "n_training_steps": n_training_steps,
+            "n_warmup_steps": n_warmup_steps,
+            "trainable": trainable
+        }
+
         super().__init__()
         self.backbone = AutoModel.from_pretrained(backbone, cache_dir="models")
         self.backbone.hidden_dropout_prob = dropout
 
+        # TODO check that I didn't do something wrong here
+        hidden_size = self.backbone.config.hidden_size  # Dynamically get hidden size (768 for most models)
+
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_size, linear_size),  # linear_up
+            nn.Dropout(dropout),
+            nn.ReLU(),
+            nn.Linear(linear_size, hidden_size),
+            nn.ReLU(),
+        )
+
         # Define linear layers
         # TODO can I set 768 as a const? what is it stand for?
         # TODO convert to torch sequential layer
-        self.linear_D = nn.Linear(768, DAGESH_SIZE)
-        self.linear_S = nn.Linear(768, SIN_SIZE)
-        self.linear_N = nn.Linear(768, NIQQUD_SIZE)
-        self.linear_up = nn.Linear(768, linear_size)
-        self.linear_down = nn.Linear(linear_size, 768)
-
-        # Activation and dropout layers
-        self.dropout = nn.Dropout(dropout)
-        self.reluLayer1 = nn.ReLU()
-        self.reluLayer2 = nn.ReLU()
+        self.linear_D = nn.Linear(hidden_size, DAGESH_SIZE)
+        self.linear_S = nn.Linear(hidden_size, SIN_SIZE)
+        self.linear_N = nn.Linear(hidden_size, NIQQUD_SIZE)
 
         self.lr = lr
         self.n_training_steps = n_training_steps
@@ -143,17 +160,18 @@ class MenakBert(LightningModule):
         return model_trainable & backbone_trainable
 
     def forward(self, input_ids, attention_mask):
+        # Forward through the backbone
         last_hidden_state = self.backbone(input_ids, attention_mask)['last_hidden_state']
-        large = self.linear_up(last_hidden_state)
-        drop = self.dropout(large)
-        active1 = self.reluLayer1(drop)
-        small = self.linear_down(active1)
-        active2 = self.reluLayer2(small)
-        n = self.linear_N(active2)
-        d = self.linear_D(active2)
-        s = self.linear_S(active2)
-        output = dict(N=n, D=d, S=s)
-        return output
+
+        # Pass through the classifier
+        features = self.classifier(last_hidden_state)
+
+        # Get logits for the different classification tasks
+        n = self.linear_N(features)
+        d = self.linear_D(features)
+        s = self.linear_S(features)
+
+        return dict(N=n, D=d, S=s)
 
     # Helper function to handle cross-entropy loss with optional weights
     @staticmethod
@@ -273,31 +291,47 @@ class MenakBert(LightningModule):
             )
         )
 
-    def save_pretrained(self, save_directory: str):
-        """Saves the backbone, custom classification heads, and tokenizer."""
-        save_path = Path(save_directory)
+    def save_pretrained(self, save_directory: Path):
+        """Save model and configuration to the Hugging Face format."""
+        # Save the model's state dict (weights) into one file
+        torch.save(self.state_dict(), save_directory / 'pytorch_model.bin')
 
-        # Save the backbone model
-        self.backbone.save_pretrained(save_path)
+        with open(save_directory / 'config.json', 'w') as f:
+            json.dump(self.config, f)
 
+    @classmethod
+    def from_pretrained(cls, save_directory: Path):
+        """Load the model and configuration from Hugging Face format."""
+        # Load configuration
+        with open(save_directory / 'config.json', 'r') as f:
+            config = json.load(f)
 
-        # Save the state of the custom classification heads
-        torch.save(self.linear_D.state_dict(), save_path / 'linear_D.pth')
-        torch.save(self.linear_S.state_dict(), save_path / 'linear_S.pth')
-        torch.save(self.linear_N.state_dict(), save_path / 'linear_N.pth')
-        torch.save(self.linear_up.state_dict(), save_path / 'linear_up.pth')
-        torch.save(self.linear_down.state_dict(), save_path / 'linear_down.pth')
+        # Create a new instance of the model with the saved configuration
+        model = cls(**config)
 
-    def load_pretrained(self, save_directory: str):
-        """Loads the backbone, custom classification heads, and tokenizer."""
-        save_path = Path(save_directory)
+        # Load the saved state dict (weights)
+        model.load_state_dict(torch.load(save_directory / 'pytorch_model.bin'))
 
-        # Load the backbone model
-        self.backbone.from_pretrained(save_path)
+        return model
 
-        # Load the state of the custom classification heads
-        self.linear_D.load_state_dict(torch.load(save_path / 'linear_D.pth'))
-        self.linear_S.load_state_dict(torch.load(save_path / 'linear_S.pth'))
-        self.linear_N.load_state_dict(torch.load(save_path / 'linear_N.pth'))
-        self.linear_up.load_state_dict(torch.load(save_path / 'linear_up.pth'))
-        self.linear_down.load_state_dict(torch.load(save_path / 'linear_down.pth'))
+    def infer_sentence(self, sentence: str):
+        # Tokenize the input sentence
+        # Consider to add the tokenizer to the model
+        # inputs = self.tokenizer(sentence, return_tensors="pt", padding=True, truncation=True, max_length=512)
+        tokenizer = AutoTokenizer.from_pretrained(BACKBONE, use_fast=True)
+        inputs = tokenizer(sentence, return_tensors="pt", padding=True, truncation=True, max_length=512)
+
+        # Move inputs to the same device as the model (if using GPU)
+        input_ids = inputs['input_ids']
+        attention_mask = inputs['attention_mask']
+
+        # Perform inference
+        with torch.no_grad():  # Disable gradient calculation for inference
+            preds = self.forward(input_ids, attention_mask)
+            preds['N'] = torch.argmax(preds['N'], dim=-1)
+            preds['D'] = torch.argmax(preds['D'], dim=-1)
+            preds['S'] = torch.argmax(preds['S'], dim=-1)
+
+            line_out = format_output_y1(input_ids, preds['N'], preds['D'], preds['S'], tokenizer)
+
+        return line_out
