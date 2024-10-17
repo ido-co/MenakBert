@@ -12,7 +12,7 @@ from torch import Tensor
 from torchmetrics import F1Score
 from transformers import AutoModel, get_linear_schedule_with_warmup, AutoTokenizer
 
-from consts import N_CLASSES, D_CLASSES, S_CLASSES, BACKBONE
+from consts import N_CLASSES, D_CLASSES, S_CLASSES, BACKBONE, HEAD_DROPOUT
 from dataset import DAGESH_SIZE, SIN_SIZE, NIQQUD_SIZE, PAD_INDEX
 from metrics import format_output_y1
 
@@ -83,20 +83,17 @@ class MenakBert(LightningModule):
         self.backbone = AutoModel.from_pretrained(backbone, cache_dir="models")
         self.backbone.hidden_dropout_prob = dropout
 
-        # TODO check that I didn't do something wrong here
-        hidden_size = self.backbone.config.hidden_size  # Dynamically get hidden size (768 for most models)
+        hidden_size = self.backbone.config.hidden_size 
 
         self.classifier = nn.Sequential(
-            nn.Linear(hidden_size, linear_size),  # linear_up
-            nn.Dropout(dropout),
+            nn.Linear(hidden_size, linear_size), 
+            nn.Dropout(HEAD_DROPOUT),
             nn.ReLU(),
             nn.Linear(linear_size, hidden_size),
             nn.ReLU(),
         )
 
         # Define linear layers
-        # TODO can I set 768 as a const? what is it stand for?
-        # TODO convert to torch sequential layer
         self.linear_D = nn.Linear(hidden_size, DAGESH_SIZE)
         self.linear_S = nn.Linear(hidden_size, SIN_SIZE)
         self.linear_N = nn.Linear(hidden_size, NIQQUD_SIZE)
@@ -206,8 +203,7 @@ class MenakBert(LightningModule):
         self.log("val_loss", loss, on_step=True, prog_bar=True, logger=True)
         return {"loss": loss, "predictions": outputs, "labels": batch["label"]}
 
-    def validation_evaluate_layer_metrics(self, layer_key: str, outputs):
-        # TODO find a better name
+    def validate_layer_metrics(self, layer_key: str, outputs):
         logits = torch.cat([tmp["predictions"][layer_key] for tmp in outputs])
         pred = torch.argmax(logits, dim=-1)
         labels = torch.cat([tmp["labels"][layer_key] for tmp in outputs])
@@ -216,9 +212,9 @@ class MenakBert(LightningModule):
         return pec
 
     def validation_epoch_end(self, output_results):
-        pec_S = self.validation_evaluate_layer_metrics("S", output_results)
-        pec_D = self.validation_evaluate_layer_metrics("D", output_results)
-        pec_N = self.validation_evaluate_layer_metrics("N", output_results)
+        pec_S = self.validate_layer_metrics("S", output_results)
+        pec_D = self.validate_layer_metrics("D", output_results)
+        pec_N = self.validate_layer_metrics("N", output_results)
         return {'f1_score_S': pec_S,
                 'f1_score_D': pec_D,
                 'f1_score_N': pec_N,
@@ -315,18 +311,13 @@ class MenakBert(LightningModule):
         return model
 
     def infer_sentence(self, sentence: str):
-        # Tokenize the input sentence
-        # Consider to add the tokenizer to the model
-        # inputs = self.tokenizer(sentence, return_tensors="pt", padding=True, truncation=True, max_length=512)
         tokenizer = AutoTokenizer.from_pretrained(BACKBONE, use_fast=True)
         inputs = tokenizer(sentence, return_tensors="pt", padding=True, truncation=True, max_length=512)
 
-        # Move inputs to the same device as the model (if using GPU)
         input_ids = inputs['input_ids']
         attention_mask = inputs['attention_mask']
 
-        # Perform inference
-        with torch.no_grad():  # Disable gradient calculation for inference
+        with torch.no_grad():
             preds = self.forward(input_ids, attention_mask)
             preds['N'] = torch.argmax(preds['N'], dim=-1)
             preds['D'] = torch.argmax(preds['D'], dim=-1)

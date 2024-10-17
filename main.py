@@ -22,7 +22,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def calc_weights(train_data):
-    # TODO when refactoring move to a better place, might be in utils or Data Module
+    # TODO move to hebrew data module
     tmp = train_data.counter['N']
     n_weights = torch.tensor([tmp[i] for i in range(len(tmp.keys()))])
     n_weights = (n_weights / n_weights.sum()).to(device)
@@ -131,7 +131,6 @@ def train_model(params, data_modules):
         # does it have state?
         trainer = setup_trainer(params['max_epochs'])
         trainer.fit(model, dm)
-        # todo : Somewhere above is the saving problem
 
     trainer.test(model, data_modules[-1])
     return model, trainer
@@ -212,14 +211,13 @@ try:
     import hydra
     from omegaconf import DictConfig
 
-    HYDRA_AVAILABLE = True
+    HYDRA_AVAILABLE = False
 except ImportError:
     HYDRA_AVAILABLE = False
     DictConfig = dict  # Fallback to regular dict if hydra is unavailable
 
 
 def parse_config_to_params(cfg: DictConfig) -> Dict:
-    # TODO create a dataclass after refactor
     params = {
         "train_data": cfg.dataset.train_path,
         "val_data": cfg.dataset.val_path,

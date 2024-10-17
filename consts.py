@@ -10,7 +10,7 @@ BACKBONE_MODEL_LOCAL_URL = "https://drive.google.com/drive/folders/1K78B5SM8FjBc
 
 PROJ_FOLDER = Path.cwd()
 OUTPUT_FOLDER = PROJ_FOLDER / "output"
-TRAIN_PATH = PROJ_FOLDER / r"hebrew_diacritized/data/train"
+TRAIN_PATH = PROJ_FOLDER / "hebrew_diacritized/data/train"
 VAL_PATH = PROJ_FOLDER / "hebrew_diacritized/data/validation"
 TEST_PATH = PROJ_FOLDER / "hebrew_diacritized/data/test"
 
@@ -20,13 +20,14 @@ val_data = [VAL_PATH]
 test_data = [TEST_PATH]
 
 Val_BatchSize = 32
-Train_BatchSize = 32
+Train_BatchSize = 64
 
 DROPOUT = 0.1
+HEAD_DROPOUT = 0.3
 
 LR = 1e-5
 
-MAX_EPOCHS = 2
+MAX_EPOCHS = 20
 MIN_EPOCHS = 1
 
 MAX_LEN = 100
@@ -46,6 +47,7 @@ DEFAULT_CFG = {
     "minlen": MIN_LEN,
     "lr": LR,
     "dropout": DROPOUT,
+    "head_dropout": HEAD_DROPOUT,
     "train_batch_size": Train_BatchSize,
     "val_batch_size": Val_BatchSize,
     "max_epochs": MAX_EPOCHS,
@@ -72,6 +74,7 @@ CSV_HEAD = [
     "split_sentence",
     "lr",
     "dropout",
+    "head_dropout",
     "linear_layer_size",
     "train_batch_size",
     "val_batch_size",
