@@ -23,6 +23,7 @@ class HebrewDataModule(LightningDataModule):
             train_batch_size: int,
             val_batch_size: int,
             split_sentence,
+            name: str,
             test_paths=None,
             **kwargs,
     ):
@@ -36,6 +37,7 @@ class HebrewDataModule(LightningDataModule):
         self.min_seq_length = min_seq_length
         self.val_batch_size = val_batch_size
         self.split_sentence = split_sentence
+        self.name = name
         self.tokenizer = AutoTokenizer.from_pretrained(self.model, use_fast=True)
 
     def setup(self, stage: str = None):
@@ -123,6 +125,7 @@ def create_data_modules(params: Dict, use_cache: bool = False, force_refresh: bo
             val_batch_size=params['val_batch_size'],
             split_sentence=params['split_sentence'],
             test_paths=[testpath[i]],
+            name=directory
         )
         dm.setup()  # Ensure the data module is ready
 

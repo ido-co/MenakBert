@@ -9,7 +9,7 @@ BACKBONE = "tau/tavbert-he"
 BACKBONE_MODEL_LOCAL_URL = "https://drive.google.com/drive/folders/1K78B5SM8FjBc_5r-UWTwoj1x105xpksK?usp=sharing"
 
 PROJ_FOLDER = Path.cwd()
-OUTPUT_FOLDER = PROJ_FOLDER / "output"
+OUTPUT_FOLDER = PROJ_FOLDER / "output_adamw_reset_model"
 TRAIN_PATH = PROJ_FOLDER / "hebrew_diacritized/data/train"
 VAL_PATH = PROJ_FOLDER / "hebrew_diacritized/data/validation"
 TEST_PATH = PROJ_FOLDER / "hebrew_diacritized/data/test"

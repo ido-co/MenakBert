@@ -272,7 +272,7 @@ class MenakBert(LightningModule):
                 }
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
         scheduler = get_linear_schedule_with_warmup(
             optimizer,
             num_warmup_steps=self.n_warmup_steps,

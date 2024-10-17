@@ -84,13 +84,11 @@ def setup_trainer(max_epochs):
     logger = TensorBoardLogger(OUTPUT_FOLDER / "lightning_logs", name="nikkud_logs")
     early_stopping_callback = EarlyStopping(monitor='train_loss', patience=5)
 
-    save_model_callback = SaveModelCallback(base_directory=OUTPUT_FOLDER / "huggingface_models")
-
     trainer = Trainer(
         logger=logger,
         # auto_lr_find=True,
-        callbacks=[checkpoint_callback, save_model_callback, early_stopping_callback],
-        max_epochs=max_epochs,  # TODO ask ido if we need min epochs
+        callbacks=[checkpoint_callback, early_stopping_callback],
+        max_epochs=max_epochs, 
         gpus=1,
         progress_bar_refresh_rate=100,
         log_every_n_steps=100
@@ -100,7 +98,6 @@ def setup_trainer(max_epochs):
 
 def update_model_training_params(warmup_steps, total_training_steps, model, i, params):
     # TODO think about a better implemented
-
     # TODO encapsulate
     model.n_warmup_steps = warmup_steps
     model.n_training_steps = total_training_steps
@@ -110,6 +107,12 @@ def update_model_training_params(warmup_steps, total_training_steps, model, i, p
         model.weights = True
     else:
         model.weights = False
+
+
+def get_best_checkpoint(trainer):
+    checkpoint_path = trainer.checkpoint_callback.best_model_path
+    model = MenakBert.load_from_checkpoint(checkpoint_path)
+    return model
 
 
 def train_model(params, data_modules):
@@ -127,11 +130,10 @@ def train_model(params, data_modules):
 
         update_model_training_params(warmup_steps, total_training_steps, model, i, params)
 
-        # TODO ask ido what is the right place for the setup trainer, in the for loop or outside?
-        # does it have state?
         trainer = setup_trainer(params['max_epochs'])
         trainer.fit(model, dm)
-
+        model = get_best_checkpoint(trainer)
+        print(f"The best checkpoint of {dm.name} is: {trainer.checkpoint_callback.best_model_path}")
     trainer.test(model, data_modules[-1])
     return model, trainer
 
@@ -168,43 +170,14 @@ def dump_model_performance_stats(params, model, trainer):
         writer = csv.DictWriter(f, fieldnames=list(CSV_HEAD))
         writer.writerow(fin)
 
-
-# TODO consider moving it into utils or create model callbacks module
-
-def generate_timestamp() -> str:
-    """Generates a timestamp in the format YYYYMMDD_HHMMSS."""
-    return datetime.now().strftime("%Y%m%d_%H%M%S")
-
-
-class SaveModelCallback(Callback):
-    def __init__(self, base_directory: str):
-        super().__init__()
-        self.base_directory = base_directory
-
-    def save_model_for_huggingface(self, model, epoch: int):
-        """Saves the model in Hugging Face format."""
-        save_directory = self._create_save_directory(epoch)
-        model.save_pretrained(save_directory)
-
-    def _create_save_directory(self, epoch: int) -> Path:
-        """Creates a unique directory for saving the model."""
-        timestamp = generate_timestamp()
-        save_directory = Path(self.base_directory) / f"{timestamp}_epoch_{epoch}"
-        save_directory.mkdir(parents=True, exist_ok=True)
-        return save_directory
-
-    def on_epoch_end(self, trainer, pl_module):
-        """Triggered at the end of each epoch to save the model."""
-        epoch = trainer.current_epoch
-        self.save_model_for_huggingface(pl_module, epoch)
-
-
+    
 def run_model(params):
     os.environ['TOKENIZERS_PARALLELISM'] = 'true'
 
     data_modules = create_data_modules(params)
     model, trainer = train_model(params, data_modules)
     dump_model_performance_stats(params, model, trainer)
+    
 
 
 try:
