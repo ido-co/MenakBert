@@ -128,7 +128,7 @@ def train_model(params, data_modules):
             # check_encoder_training(model.backbone)
             # check_trainable_layers(model.backbone)
 
-        update_model_training_params(warmup_steps, total_training_steps, model, i, params)
+        update_model_training_params(0, total_training_steps, model, i, params)
 
         trainer = setup_trainer(params['max_epochs'])
         trainer.fit(model, dm)
