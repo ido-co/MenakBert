@@ -82,7 +82,7 @@ def setup_trainer(max_epochs):
     )
 
     logger = TensorBoardLogger(OUTPUT_FOLDER / "lightning_logs", name="nikkud_logs")
-    early_stopping_callback = EarlyStopping(monitor='train_loss', patience=5)
+    early_stopping_callback = EarlyStopping(monitor='val_loss', patience=10)
 
     trainer = Trainer(
         logger=logger,

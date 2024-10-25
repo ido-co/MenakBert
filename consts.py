@@ -10,9 +10,10 @@ BACKBONE_MODEL_LOCAL_URL = "https://drive.google.com/drive/folders/1K78B5SM8FjBc
 
 PROJ_FOLDER = Path.cwd()
 OUTPUT_FOLDER = PROJ_FOLDER / "output_adamw_reset_model"
-TRAIN_PATH = PROJ_FOLDER / "hebrew_diacritized/data/train"
-VAL_PATH = PROJ_FOLDER / "hebrew_diacritized/data/validation"
-TEST_PATH = PROJ_FOLDER / "hebrew_diacritized/data/test"
+DATA_FOLDER = "hebrew_diacritized"
+TRAIN_PATH = PROJ_FOLDER / DATA_FOLDER / "data/train"
+VAL_PATH = PROJ_FOLDER / DATA_FOLDER / "data/validation"
+TEST_PATH = PROJ_FOLDER / DATA_FOLDER / "data/test"
 
 
 train_data = [TRAIN_PATH]
@@ -27,7 +28,7 @@ HEAD_DROPOUT = 0.3
 
 LR = 1e-5
 
-MAX_EPOCHS = 20
+MAX_EPOCHS = 20  
 MIN_EPOCHS = 1
 
 MAX_LEN = 100

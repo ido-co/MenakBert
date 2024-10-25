@@ -16,6 +16,7 @@ from consts import N_CLASSES, D_CLASSES, S_CLASSES, BACKBONE, HEAD_DROPOUT
 from dataset import DAGESH_SIZE, SIN_SIZE, NIQQUD_SIZE, PAD_INDEX
 from metrics import format_output_y1
 
+DEVICE =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def set_model_training_mode(model: LightningModule, trainable: bool):
     """Set the training mode for all layers in the model.
@@ -133,9 +134,9 @@ class MenakBert(LightningModule):
     def set_full_weights(self):
         n_weights = torch.tensor([2.4920e-01, 2.6323e-01, 8.8410e-02, 1.0692e-03, 1.2552e-02, 1.4649e-04,
                                   7.2875e-02, 2.8470e-02, 4.6895e-02, 7.4532e-02, 8.5893e-02, 4.8047e-02,
-                                  2.6159e-05, 2.8658e-02], device=self.device)
-        s_weights = torch.tensor([9.6249e-01, 3.2961e-04, 3.4374e-02, 2.8073e-03], device=self.device)
-        d_weights = torch.tensor([0.3914, 0.5126, 0.0961], device=self.device)
+                                  2.6159e-05, 2.8658e-02], device=DEVICE)
+        s_weights = torch.tensor([9.6249e-01, 3.2961e-04, 3.4374e-02, 2.8073e-03], device=DEVICE)
+        d_weights = torch.tensor([0.3914, 0.5126, 0.0961], device=DEVICE)
         self.full_weights = {'N': n_weights, 'S': s_weights, 'D': d_weights}
 
     def freeze_layers(self):
@@ -195,12 +196,12 @@ class MenakBert(LightningModule):
 
     def training_step(self, batch, batch_idx):
         loss, outputs = self.calculate_loss(batch)
-        self.log("train_loss", loss, prog_bar=True, logger=True)
+        self.log("train_loss", loss, prog_bar=True, logger=True, batch_size=len(batch))
         return {"loss": loss, "predictions": outputs, "labels": batch["label"]}
 
     def validation_step(self, batch, batch_idx):
         loss, outputs = self.calculate_loss(batch)
-        self.log("val_loss", loss, on_step=True, prog_bar=True, logger=True)
+        self.log("val_loss", loss, on_step=True, prog_bar=True, logger=True, batch_size=len(batch))
         return {"loss": loss, "predictions": outputs, "labels": batch["label"]}
 
     def validate_layer_metrics(self, layer_key: str, outputs):
@@ -222,7 +223,7 @@ class MenakBert(LightningModule):
 
     def test_step(self, batch, batch_idx):
         loss, outputs = self.calculate_loss(batch)
-        self.log("test_loss", loss, on_step=True, prog_bar=True, logger=True)
+        self.log("test_loss", loss, on_step=True, prog_bar=True, logger=True, batch_size=len(batch))
         return {"loss": loss, "predictions": outputs, "labels": batch["label"]}
 
     def log_confusion_matrix(self, preds: Tensor, labels: Tensor, class_labels: List[str], title: str, tag: str,

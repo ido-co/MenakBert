@@ -1,7 +1,7 @@
 #! /bin/sh
 #SBATCH --job-name=menakbert
-#SBATCH --output=menakbert.out
-#SBATCH --error=menakbert.err
+#SBATCH --output=menakbert2.out
+#SBATCH --error=menakbert2.err
 #SBATCH --partition=killable
 #SBATCH --time=500
 #SBATCH --nodes=1
